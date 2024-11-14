@@ -1,0 +1,44 @@
+package gui_PaintApp;
+
+import java.awt.BorderLayout;
+import java.awt.EventQueue;
+
+import javax.swing.JFrame;
+
+public class PaintApplication extends JFrame {
+    private CanvasPanel canvasPanel;
+    private ControlPanel controlPanel;
+
+    public PaintApplication() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setBounds(100, 100, 1000, 700);
+        setLayout(new BorderLayout());
+
+        canvasPanel = new CanvasPanel();
+        controlPanel = new ControlPanel();
+
+        add(canvasPanel, BorderLayout.CENTER);
+        add(controlPanel, BorderLayout.WEST);
+
+        // Set event listeners
+        controlPanel.addPropertyChangeListener(evt -> {
+            if ("colorChanged".equals(evt.getPropertyName())) {
+                canvasPanel.setCurrentColor(controlPanel.getCurrentColor());
+            }
+            if ("penSizeChanged".equals(evt.getPropertyName())) {
+                canvasPanel.setPenSize(controlPanel.getPenSize());
+            }
+        });
+    }
+
+    public static void main(String[] args) {
+        EventQueue.invokeLater(() -> {
+            try {
+                PaintApp frame = new PaintApp();
+                frame.setVisible(true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+}
