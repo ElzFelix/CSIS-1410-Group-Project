@@ -18,28 +18,16 @@ public class PaintApplication extends JFrame {
     private static final long serialVersionUID = 1L;
 
     // Panels and components
-    private JPanel canvasPanel;
-    private JPanel controlPanel;
-    private JSlider redSlider, greenSlider, blueSlider, penSizeSlider;
-    private JButton btnEraseTool, btnStampTool, btnOpenImage, btnSaveImage, btnUndo, btnRedo;
-
-    // Drawing variables
-    private Color currentColor = Color.BLACK;
-    private int penSize = 5;
+    private CanvasPanel canvasPanel;
+    private ControlPanel controlPanel;
     
-    private boolean isErasing = false;
-    private boolean isStamping = false;
-    
-    private BufferedImage canvasImage;
-    private BufferedImage stampImage; // Stamp tool image
-    
-    private ArrayList<Point> points = new ArrayList<>();
+    //top panel buttons
+    private JButton btnOpenImage, btnSaveImage, btnUndo, btnRedo;
     
     //for undo/redo
-    private Stack<ArrayList<Point>> undoStack = new Stack<>();
-    private Stack<ArrayList<Point>> redoStack = new Stack<>();
-    
-    FileNameExtensionFilter fileFilter = new FileNameExtensionFilter("Image Files", "jpg", "png", "gif", "jpeg");
+    private static Stack<ArrayList<Point>> undoStack = new Stack<>();
+    private static Stack<ArrayList<Point>> redoStack = new Stack<>();
+   
 
     /**
      * Main method, kickstarts the application
@@ -74,15 +62,29 @@ public class PaintApplication extends JFrame {
         getContentPane().setLayout(new BorderLayout());
 
         // Create components
-        createCanvasPanel();
-        createControlPanel();
+        canvasPanel = new CanvasPanel();
+        controlPanel = new ControlPanel(canvasPanel);
 
         // Add components to frame
         getContentPane().add(canvasPanel, BorderLayout.CENTER);
         getContentPane().add(controlPanel, BorderLayout.WEST);
 
-        // Create top panel with buttons
-        JPanel topPanel = new JPanel();
+        
+        createTopPanel();
+    }
+
+    /**
+     * Creates the top panel with buttons
+     * 
+     * <br>
+     * Created by: Eleazar Felix
+     * 
+     * Refactored into method by Christian Miller
+     */
+	private void createTopPanel()
+	{
+		JPanel topPanel = new JPanel();
+        
         btnOpenImage = new JButton("Open Image");
         btnSaveImage = new JButton("Save Image");
         btnUndo = new JButton("Undo");
@@ -92,145 +94,17 @@ public class PaintApplication extends JFrame {
         topPanel.add(btnSaveImage);
         topPanel.add(btnUndo);
         topPanel.add(btnRedo);
+        
         getContentPane().add(topPanel, BorderLayout.NORTH);
-
+        
         // Add listeners
-        btnOpenImage.addActionListener(e -> openImage());
-        btnSaveImage.addActionListener(e -> saveImage());
+        btnOpenImage.addActionListener(e -> ImageHandler.openImage(canvasPanel));
+        btnSaveImage.addActionListener(e -> ImageHandler.saveImage(canvasPanel));
         btnUndo.addActionListener(e -> undo());
         btnRedo.addActionListener(e -> redo());
-    }
+	}
 
-    /**
-     * Creates the panel containing the drawing canvas and adds listeners for mouse.
-     */
-    private void createCanvasPanel() {
-    	
-        canvasPanel = new JPanel() {
-        	
-            @Override
-            protected void paintComponent(Graphics g) {
-            	
-                super.paintComponent(g);
-                
-                if (canvasImage != null) {
-                    g.drawImage(canvasImage, 0, 0, null);
-                }
-                
-                g.setColor(currentColor);
-                
-                for (Point point : points) {
-                    g.fillOval(point.x, point.y, penSize, penSize);
-                }
-            }
-        };
-        canvasPanel.setBackground(Color.WHITE);
-        
-        
-        canvasPanel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                if (isErasing) {
-                    erase(e.getPoint());
-                } else if (isStamping && stampImage != null) {
-                    stamp(e.getPoint());
-                } else {
-                    points.add(e.getPoint());
-                    repaint();
-                }
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                saveStateForUndo();
-            }
-            
-        });
-        
-        
-        canvasPanel.addMouseMotionListener(new MouseAdapter() {
-            @Override
-            public void mouseDragged(MouseEvent e) {
-                if (isErasing) {
-                    erase(e.getPoint());
-                } else {
-                    points.add(e.getPoint());
-                    repaint();
-                }
-            }
-        });
-    }
-
-    private void createControlPanel() {
-        controlPanel = new JPanel(new GridLayout(6, 1));
-        controlPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-
-        redSlider = createColorSlider("Red");
-        greenSlider = createColorSlider("Green");
-        blueSlider = createColorSlider("Blue");
-
-        penSizeSlider = new JSlider(1, 20, 5);
-        penSizeSlider.setBorder(BorderFactory.createTitledBorder("Pen Size"));
-        penSizeSlider.addChangeListener(e -> penSize = penSizeSlider.getValue());
-        controlPanel.add(penSizeSlider);
-
-        btnEraseTool = new JButton("Erase Tool");
-        btnEraseTool.addActionListener(e -> isErasing = !isErasing);
-        controlPanel.add(btnEraseTool);
-
-        btnStampTool = new JButton("Stamp Tool");
-        btnStampTool.addActionListener(e -> isStamping = !isStamping);
-        controlPanel.add(btnStampTool);
-    }
-
-    private JSlider createColorSlider(String label) {
-    	
-        JSlider slider = new JSlider(0, 255, 0);
-        slider.setBorder(BorderFactory.createTitledBorder(label));
-        slider.addChangeListener(e -> updateColor());
-        
-        controlPanel.add(slider);
-        
-        return slider;
-        
-    }
-
-    /**
-     * Reads the color sliders and sets <code>currentColor</code> the RGB color for the given values.
-     * 
-     * <br>
-     * Created by: Eleazar Felix
-     * <br>
-     * Christian Miller cleaned up whitespace
-     * <br>
-     * Doc comment written by: Christian Miller 
-     */
-    private void updateColor() {
-    	
-        int red = redSlider.getValue();
-        int green = greenSlider.getValue();
-        int blue = blueSlider.getValue();
-        
-        currentColor = new Color(red, green, blue);
-    }
-
-    private void erase(Point point) {
-    	
-        points.removeIf(p -> p.distance(point) <= penSize);
-        repaint();
-        
-    }
-
-    private void stamp(Point point) {
-    	
-        if (stampImage != null) {
-            Graphics g = canvasPanel.getGraphics();
-            
-            g.drawImage(stampImage, point.x - stampImage.getWidth() / 2, point.y - stampImage.getHeight() / 2, null);
-            
-            repaint();
-        }
-    }
+    //moved erase and stamp to CanvasPanel Class
 
     /**
      * Saves the state of the canvas for later undo
@@ -241,8 +115,10 @@ public class PaintApplication extends JFrame {
      * Christian Miller cleaned up whitespace
      * <br>
      * Doc comment written by: Christian Miller 
+     * 
+     * made static by Christian Miller, in order to move a lot of functionality to CanvasPanel
      */
-    private void saveStateForUndo() {
+    public static void saveStateForUndo(ArrayList<Point> points) {
     	
         undoStack.push(new ArrayList<>(points));
         redoStack.clear();
@@ -263,8 +139,8 @@ public class PaintApplication extends JFrame {
     	
         if (!undoStack.isEmpty()) {
         	
-            redoStack.push(new ArrayList<>(points));
-            points = undoStack.pop();
+            redoStack.push(new ArrayList<>(canvasPanel.points));
+            canvasPanel.points = undoStack.pop();
             
             repaint();
             
@@ -286,68 +162,14 @@ public class PaintApplication extends JFrame {
     	
         if (!redoStack.isEmpty()) {
         	
-            undoStack.push(new ArrayList<>(points));
-            points = redoStack.pop();
+            undoStack.push(new ArrayList<>(canvasPanel.points));
+            canvasPanel.points = redoStack.pop();
             
             repaint();
         }
         
     }
 
-    /**
-     * Prompts the user to select an image and pastes it into the top left of the canvas.
-     * <br>
-     * Created by: Eleazar Felix
-     * <br>
-     * Christian Miller cleaned up whitespace
-     * <br>
-     * Doc comment written by: Christian Miller
-     */
-    private void openImage() {
-    	
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(fileFilter);
-        
-        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            
-        	try {
-                canvasImage = ImageIO.read(fileChooser.getSelectedFile());
-                repaint();
-            }
-        	
-        	catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        
-    }//end of openImage
-
-    /**
-     * Prompts the user to select a save location and saves the canvas as an image file.
-     * <br>
-     * Created by: Eleazar Felix
-     * <br>
-     * Christian Miller cleaned up whitespace
-     * <br>
-     * Doc comment written by: Christian Miller
-     */
-    private void saveImage() {
-    	
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileFilter(fileFilter);
-        
-        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-        	
-            try {
-                ImageIO.write(canvasImage, "PNG", fileChooser.getSelectedFile());
-            } 
-            
-            catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        
-    }//end of saveImage
     
 //end of PaintApplication class  
 }

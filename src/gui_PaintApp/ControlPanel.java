@@ -7,53 +7,96 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.event.ChangeListener;
 
 public class ControlPanel extends JPanel {
+	
     private JSlider redSlider, greenSlider, blueSlider, penSizeSlider;
     private JButton btnEraseTool, btnStampTool;
-    private Color currentColor = Color.BLACK;
-    private int penSize = 5;
+    private CanvasPanel canvasPanel; //this is so that the main canvasPanel can be effected by this controlPanel
 
-    public ControlPanel() {
-        setLayout(new GridLayout(5, 1));
-        add(createSliderPanel("Red", redSlider = new JSlider(0, 255, 0)));
-        add(createSliderPanel("Green", greenSlider = new JSlider(0, 255, 0)));
-        add(createSliderPanel("Blue", blueSlider = new JSlider(0, 255, 0)));
+    public ControlPanel(CanvasPanel canvasPanel) {
+    	
+    	this.canvasPanel = canvasPanel;
+    	
+        setLayout(new GridLayout(7, 1));
+        
+        add(createSliderPanel("Red:", redSlider = new JSlider(0, 255, 0), e -> {updateColor();}));
+        add(createSliderPanel("Green:", greenSlider = new JSlider(0, 255, 0), e -> {updateColor();}));
+        add(createSliderPanel("Blue:", blueSlider = new JSlider(0, 255, 0), e -> {updateColor();}));
 
-        penSizeSlider = new JSlider(1, 20, 5);
-        add(new JLabel("Pen Size"));
-        add(penSizeSlider);
+        add(createSliderPanel("Pen Size", penSizeSlider = new JSlider(1, 20, 5), e -> {updateSize();}));
 
-        btnEraseTool = new JButton("Erase Tool");
-        btnEraseTool.addActionListener(e -> {/* toggle eraser */});
-        add(btnEraseTool);
+        //erase tool
+        createBtnErase(canvasPanel);
 
-        btnStampTool = new JButton("Stamp Tool");
-        btnStampTool.addActionListener(e -> {/* toggle stamp tool */});
-        add(btnStampTool);
+        //stamp tool
+        createBtnStamp(canvasPanel);
+        
+        
     }
 
-    private JPanel createSliderPanel(String label, JSlider slider) {
+	/**
+	 * @param canvasPanel
+	 */
+	private void createBtnErase(CanvasPanel canvasPanel)
+	{
+		btnEraseTool = new JButton("Erase Tool");
+        
+        btnEraseTool.addActionListener(e -> {
+        	canvasPanel.setStamping(false);
+        	canvasPanel.setErasing(!canvasPanel.isErasing());
+        	});
+        
+        add(btnEraseTool);
+	}
+
+	/**
+	 * @param canvasPanel
+	 */
+	private void createBtnStamp(CanvasPanel canvasPanel)
+	{
+		btnStampTool = new JButton("Stamp Tool");
+        
+        btnStampTool.addActionListener(e -> {
+        	canvasPanel.setErasing(false);
+        	canvasPanel.setStamping(!canvasPanel.isStamping());
+        	});
+        
+        add(btnStampTool);
+	}
+
+    private JPanel createSliderPanel(String label, JSlider slider, ChangeListener l) {
         JPanel panel = new JPanel();
         JLabel sliderLabel = new JLabel(label);
         panel.add(sliderLabel);
-        slider.addChangeListener(e -> updateColor());
+        
+        slider.addChangeListener(l);
+        
         panel.add(slider);
         return panel;
     }
 
+    /**
+     * Reads the color sliders and sets <code>currentColor</code> the RGB color for the given values.
+     * 
+     * <br>
+     * Created by: Eleazar Felix
+     * <br>
+     * Christian Miller cleaned up whitespace
+     * <br>
+     * Doc comment written by: Christian Miller 
+     */
     private void updateColor() {
         int red = redSlider.getValue();
         int green = greenSlider.getValue();
         int blue = blueSlider.getValue();
-        currentColor = new Color(red, green, blue);
+        
+        canvasPanel.setCurrentColor(new Color(red, green, blue));
     }
-
-    public Color getCurrentColor() {
-        return currentColor;
-    }
-
-    public int getPenSize() {
-        return penSizeSlider.getValue();
+    
+    private void updateSize() {
+    	canvasPanel.setPenSize(penSizeSlider.getValue());
+    
     }
 }
