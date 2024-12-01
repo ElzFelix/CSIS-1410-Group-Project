@@ -11,13 +11,16 @@ import java.util.ArrayList;
 import javax.swing.JPanel;
 
 public class CanvasPanel extends JPanel {
+	
     private Color currentColor = Color.BLACK;
     private int penSize = 5;
     private ArrayList<Point> points = new ArrayList<>();
     private BufferedImage canvasImage;
 
     public CanvasPanel() {
+    	
         setBackground(Color.WHITE);
+        
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -25,6 +28,7 @@ public class CanvasPanel extends JPanel {
                 repaint();
             }
         });
+        
         addMouseMotionListener(new MouseAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
