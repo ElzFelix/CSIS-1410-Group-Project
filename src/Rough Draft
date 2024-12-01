@@ -1,0 +1,251 @@
+package gui_PaintApp;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.util.*;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+
+public class PaintApp extends JFrame {
+
+    private static final long serialVersionUID = 1L;
+    private JPanel contentPane;
+    private JPanel colorDisplayPanel;
+    private JSlider redSlider, greenSlider, blueSlider, penSizeSlider;
+    private Color currentColor = Color.BLACK;
+    private int penSize = 5;
+    private boolean isDrawing = false;
+    private boolean isErasing = false;
+    private boolean isStamping = false;
+    private BufferedImage canvasImage;
+    private ArrayList<Point> points = new ArrayList<>();
+    private Stack<ArrayList<Point>> undoStack = new Stack<>();
+    private Stack<ArrayList<Point>> redoStack = new Stack<>();
+    private BufferedImage stampImage; // Stamp image for the stamp tool
+
+    public static void main(String[] args) {
+        EventQueue.invokeLater(() -> {
+            try {
+                PaintApp frame = new PaintApp();
+                frame.setVisible(true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public PaintApp() {
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setBounds(100, 100, 1000, 700);
+        contentPane = new JPanel();
+        contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+        setContentPane(contentPane);
+        contentPane.setLayout(new BorderLayout(0, 0));
+
+        JPanel titlePanel = createTitlePanel();
+        contentPane.add(titlePanel, BorderLayout.NORTH);
+
+        colorDisplayPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                if (canvasImage != null) {
+                    g.drawImage(canvasImage, 0, 0, null); // Draw the image (if any)
+                }
+                g.setColor(currentColor);
+                for (Point point : points) {
+                    g.fillOval(point.x, point.y, penSize, penSize); // Draw points for pen tool
+                }
+            }
+        };
+        colorDisplayPanel.setBackground(Color.WHITE);
+        colorDisplayPanel.setPreferredSize(new Dimension(800, 500));
+        contentPane.add(colorDisplayPanel, BorderLayout.CENTER);
+
+        colorDisplayPanel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (isErasing) {
+                    erase(e.getPoint());
+                } else if (isStamping && stampImage != null) {
+                    stamp(e.getPoint());
+                } else {
+                    isDrawing = true;
+                    points.add(e.getPoint());
+                    repaint();
+                }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                if (isDrawing) {
+                    saveStateForUndo();
+                    isDrawing = false;
+                }
+            }
+        });
+
+        colorDisplayPanel.addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (isDrawing) {
+                    points.add(e.getPoint());
+                    repaint();
+                } else if (isErasing) {
+                    erase(e.getPoint()); // Keep erasing while dragging
+                }
+            }
+        });
+
+        JPanel controlPanel = createControlPanel();
+        contentPane.add(controlPanel, BorderLayout.WEST);
+    }
+
+    private JPanel createTitlePanel() {
+        JPanel titlePanel = new JPanel();
+        titlePanel.setBorder(new EmptyBorder(5, 0, 5, 0));
+
+        JButton btnOpenImage = new JButton("Open Image");
+        btnOpenImage.addActionListener(e -> openImage());
+        titlePanel.add(btnOpenImage);
+
+        JButton btnSaveImage = new JButton("Save Image");
+        btnSaveImage.addActionListener(e -> saveImage());
+        titlePanel.add(btnSaveImage);
+
+        JButton btnUndo = new JButton("Undo");
+        btnUndo.addActionListener(e -> undo());
+        titlePanel.add(btnUndo);
+
+        JButton btnRedo = new JButton("Redo");
+        btnRedo.addActionListener(e -> redo());
+        titlePanel.add(btnRedo);
+
+        return titlePanel;
+    }
+
+    private JPanel createControlPanel() {
+        JPanel controlPanel = new JPanel();
+        controlPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+        controlPanel.setLayout(new GridLayout(5, 1));
+
+        // RGB Sliders
+        controlPanel.add(createSliderPanel("Red", redSlider = new JSlider(0, 255, 0)));
+        controlPanel.add(createSliderPanel("Green", greenSlider = new JSlider(0, 255, 0)));
+        controlPanel.add(createSliderPanel("Blue", blueSlider = new JSlider(0, 255, 0)));
+
+        // Pen Size Slider
+        penSizeSlider = new JSlider(1, 20, 5);
+        JLabel penSizeLabel = new JLabel("Pen Size");
+        controlPanel.add(penSizeLabel);
+        controlPanel.add(penSizeSlider);
+
+        // Erase Tool Button
+        JButton btnEraseTool = new JButton("Erase Tool");
+        btnEraseTool.addActionListener(e -> isErasing = !isErasing);
+        controlPanel.add(btnEraseTool);
+
+        // Stamp Tool Button
+        JButton btnStampTool = new JButton("Stamp Tool");
+        btnStampTool.addActionListener(e -> isStamping = !isStamping);
+        controlPanel.add(btnStampTool);
+
+        return controlPanel;
+    }
+
+    private JPanel createSliderPanel(String label, JSlider slider) {
+        JPanel panel = new JPanel();
+        JLabel sliderLabel = new JLabel(label);
+        panel.add(sliderLabel);
+        slider.addChangeListener(e -> updateColor());
+        panel.add(slider);
+        return panel;
+    }
+
+    private void updateColor() {
+        int red = redSlider.getValue();
+        int green = greenSlider.getValue();
+        int blue = blueSlider.getValue();
+        currentColor = new Color(red, green, blue);
+    }
+
+    private void erase(Point point) {
+        // Implement erasing by checking distance from points and removing them
+        ArrayList<Point> newPoints = new ArrayList<>();
+        for (Point p : points) {
+            if (p.distance(point) > penSize) {
+                newPoints.add(p);
+            }
+        }
+        points = newPoints;
+        repaint();
+    }
+
+    private void stamp(Point point) {
+        // Implement stamping by drawing the stamp image at the clicked point
+        if (stampImage != null) {
+            Graphics g = colorDisplayPanel.getGraphics();
+            g.drawImage(stampImage, point.x - stampImage.getWidth() / 2, point.y - stampImage.getHeight() / 2, null);
+            repaint();
+        }
+    }
+
+    private void saveStateForUndo() {
+        undoStack.push(new ArrayList<>(points));
+        redoStack.clear();
+    }
+
+    private void undo() {
+        if (!undoStack.isEmpty()) {
+            redoStack.push(new ArrayList<>(points));
+            points = undoStack.pop();
+            repaint();
+        }
+    }
+
+    private void redo() {
+        if (!redoStack.isEmpty()) {
+            undoStack.push(new ArrayList<>(points));
+            points = redoStack.pop();
+            repaint();
+        }
+    }
+
+    private void openImage() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Open PNG Image");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNG Images", "png"));
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            try {
+                File file = fileChooser.getSelectedFile();
+                canvasImage = ImageIO.read(file);
+                repaint();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void saveImage() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save PNG Image");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("PNG Images", "png"));
+        int result = fileChooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            try {
+                File file = fileChooser.getSelectedFile();
+                if (!file.getName().endsWith(".png")) {
+                    file = new File(file.getAbsolutePath() + ".png");
+                }
+                ImageIO.write(canvasImage, "PNG", file);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
