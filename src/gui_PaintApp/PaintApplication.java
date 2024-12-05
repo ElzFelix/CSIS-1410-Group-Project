@@ -25,8 +25,8 @@ public class PaintApplication extends JFrame {
     private JButton btnOpenImage, btnSaveImage, btnUndo, btnRedo;
     
     //for undo/redo
-    private static Stack<ArrayList<Point>> undoStack = new Stack<>();
-    private static Stack<ArrayList<Point>> redoStack = new Stack<>();
+    private static Stack<ArrayList<DrawingPoint>> undoStack = new Stack<>();
+    private static Stack<ArrayList<DrawingPoint>> redoStack = new Stack<>();
    
 
     /**
@@ -69,8 +69,10 @@ public class PaintApplication extends JFrame {
         getContentPane().add(canvasPanel, BorderLayout.CENTER);
         getContentPane().add(controlPanel, BorderLayout.WEST);
 
-        
         createTopPanel();
+        
+        // Save the initial state for undo
+        saveStateForUndo(canvasPanel.points);
     }
 
     /**
@@ -118,12 +120,14 @@ public class PaintApplication extends JFrame {
      * 
      * made static by Christian Miller, in order to move a lot of functionality to CanvasPanel
      */
-    public static void saveStateForUndo(ArrayList<Point> points) {
+	public static void saveStateForUndo(ArrayList<DrawingPoint> points) {
     	
-        undoStack.push(new ArrayList<>(points));
-        redoStack.clear();
-        
-    }
+		if (undoStack.isEmpty() || !undoStack.peek().equals(points)) {
+	        undoStack.push(new ArrayList<>(points));
+	    }
+		
+	    redoStack.clear(); 
+	}
 
     /**
      * Undoes the last action taken in the canvas and adds the undone action to the redo stack
@@ -137,12 +141,11 @@ public class PaintApplication extends JFrame {
      */
     private void undo() {
     	
-        if (!undoStack.isEmpty()) {
+    	 if (!undoStack.isEmpty()) {
         	
-            redoStack.push(new ArrayList<>(canvasPanel.points));
-            canvasPanel.points = undoStack.pop();
-            
-            repaint();
+    		 redoStack.push(new ArrayList<>(canvasPanel.points));
+    	     canvasPanel.points = undoStack.pop();
+    	     canvasPanel.repaint();
             
         }
         
@@ -160,12 +163,11 @@ public class PaintApplication extends JFrame {
      */
     private void redo() {
     	
-        if (!redoStack.isEmpty()) {
-        	
-            undoStack.push(new ArrayList<>(canvasPanel.points));
-            canvasPanel.points = redoStack.pop();
-            
-            repaint();
+    	 if (!redoStack.isEmpty()) {
+    		 
+    		 undoStack.push(new ArrayList<>(canvasPanel.points));
+    	     canvasPanel.points = redoStack.pop();
+    	     canvasPanel.repaint();
         }
         
     }
