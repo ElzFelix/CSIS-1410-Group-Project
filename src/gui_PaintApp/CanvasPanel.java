@@ -9,15 +9,22 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+/**
+ * This is the class for the drawing area of the screen
+ */
+@SuppressWarnings("serial")
 public class CanvasPanel extends JPanel {
 	
     private Color currentColor = Color.BLACK;
     private int penSize = 5;
-    public ArrayList<DrawingPoint> points = new ArrayList<>();
+    public ArrayList<Undoable> points = new ArrayList<>();
     private BufferedImage canvasImage;
+    
     private BufferedImage stampImage; //image for stamp tool
+    private int stampSize = 100;
     
     private boolean isErasing = false;
     private boolean isStamping = false;
@@ -28,7 +35,7 @@ public class CanvasPanel extends JPanel {
     
     
 	/**
-     * Creates the panel containing the drawing canvas and adds listeners for mouse.
+     * adds listeners for mouse.
      * <br>
      * Created by: Eleazar Felix
      * <br>
@@ -51,7 +58,7 @@ public class CanvasPanel extends JPanel {
                 if (isErasing) {
                     erase(e.getPoint());
                     
-                } else if (isStamping && stampImage != null) {
+                } else if (isStamping) { //stamp() already checks if the image is null, so checking here is not required
                     stamp(e.getPoint());
                     
                 } else {
@@ -73,8 +80,11 @@ public class CanvasPanel extends JPanel {
         addMouseMotionListener(new MouseAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
-            	
-                if (isErasing) {
+            	if (isStamping)
+            	{
+            		//do nothing
+            	}
+            	else if (isErasing) {
                     erase(e.getPoint());
                 } else {
                 	
@@ -82,13 +92,22 @@ public class CanvasPanel extends JPanel {
                 	double y = lastPoint.getY();
                 	
                 	//draws a line between last position and current position,
-                	//written by christian miller
-                	while (Point.distance(x, y, e.getPoint().getX(), e.getPoint().getY()) >= 2)
+                	//added by christian miller
+                	if (Point.distance(x, y, e.getPoint().getX(), e.getPoint().getY()) >= 5)
                 	{
-                		x += Math.signum(e.getPoint().getX() - x);
-                		y += Math.signum(e.getPoint().getY() - y);
-                		
-                		points.add(new DrawingPoint(new Point((int) x, (int) y), penSize, currentColor));
+                	
+                		//just makes a VERY simple path from the last to current
+	                	while (Point.distance(x, y, e.getPoint().getX(), e.getPoint().getY()) >= 2)
+	                	{
+	                		x += Math.signum(e.getPoint().getX() - x);
+	                		y += Math.signum(e.getPoint().getY() - y);
+	                		
+	                		points.add(new DrawingPoint(new Point((int) x, (int) y), penSize, currentColor));
+	                	}
+                	}
+                	else // if the distance is short enough, don't bother.
+                	{
+                		points.add(new DrawingPoint(e.getPoint(), penSize, currentColor));
                 	}
                 	
                     repaint();
@@ -100,6 +119,8 @@ public class CanvasPanel extends JPanel {
         
     }
     
+    //no doc comment necessary, (repaint)
+    //this paints the stamps and brush strokes to the canvas
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -108,9 +129,24 @@ public class CanvasPanel extends JPanel {
             g.drawImage(canvasImage, 0, 0, null);
         }
 
-        for (DrawingPoint dp : points) {
-            g.setColor(dp.color);
-            g.fillOval(dp.point.x, dp.point.y, dp.size, dp.size);
+        for (Undoable dp : points) {
+        	
+        	if (dp instanceof DrawingPoint)
+        	{
+        		g.setColor(((DrawingPoint)dp).color);
+                g.fillOval(((DrawingPoint)dp).point.x - ((DrawingPoint)dp).size/2,
+                		  ((DrawingPoint)dp).point.y - ((DrawingPoint)dp).size/2,
+                		  ((DrawingPoint)dp).size, ((DrawingPoint)dp).size); //centered -chris
+        	}
+        	else //if dp instanceof DrawingStamp
+        	{
+        		g.drawImage(((DrawingStamp)dp).img,
+			        		((DrawingStamp)dp).point.x - ((DrawingStamp)dp).img.getWidth()/2,
+			        		((DrawingStamp)dp).point.y - ((DrawingStamp)dp).img.getHeight()/2,
+			        		getFocusCycleRootAncestor());
+        	}
+        	
+            
         }
     }
     
@@ -118,7 +154,7 @@ public class CanvasPanel extends JPanel {
     /**
      * * Written by: Eleazar Felix
      * <br>
-     * sets the pen size and stores it as the last used pen size.
+     * sets the pen color and stores it as the last used pen color.
      */
     public void setCurrentColor(Color color) {
         this.currentColor = color;
@@ -195,7 +231,7 @@ public class CanvasPanel extends JPanel {
      */
     private void erase(Point point) {
     	
-    	points.removeIf(dp -> dp.point.distance(point) <= penSize);
+    	points.removeIf(dp -> ((dp instanceof DrawingPoint) && ((DrawingPoint)dp).point.distance(point) <= penSize));
         repaint();
         
     }
@@ -203,16 +239,27 @@ public class CanvasPanel extends JPanel {
     /**
      * Written by: Eleazar Felix
      * <br>
-     * creates a stamp at the given point. not functional yet
+     * creates a stamp at the given point. fully implemented
      */
     private void stamp(Point point) {
     	
+    	
+    	
         if (stampImage != null) {
-            Graphics g = getGraphics();
             
-            g.drawImage(stampImage, point.x - stampImage.getWidth() / 2, point.y - stampImage.getHeight() / 2, null);
+        	Graphics g = getGraphics();
+            
+        	BufferedImage img = ImageHandler.resizeImage(stampImage, stampSize, stampImage.getHeight()+(stampSize-stampImage.getWidth()));
+        	
+        	DrawingStamp stamp = new DrawingStamp(point, img);
+        	
+        	points.add(stamp);
             
             repaint();
+        }
+        else
+        {
+        	JOptionPane.showMessageDialog(null, "Stamp Image is null!.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -303,6 +350,52 @@ public class CanvasPanel extends JPanel {
 	{
 		this.isStamping = isStamping;
 	}
+
+	/**
+     * Written by: Christian Miller
+     * <br>
+     * 
+     * Auto-generated getter or setter
+     */
+	public BufferedImage getStampImage()
+	{
+		return stampImage;
+	}
+
+	/**
+     * Written by: Christian Miller
+     * <br>
+     * 
+     * Auto-generated getter or setter
+     */
+	public void setStampImage(BufferedImage stampImage)
+	{
+		this.stampImage = stampImage;
+	}
+
+	/**
+     * Written by: Christian Miller
+     * <br>
+     * 
+     * Auto-generated getter or setter
+     */
+	public int getStampSize()
+	{
+		return stampSize;
+	}
+
+	/**
+     * Written by: Christian Miller
+     * <br>
+     * 
+     * Auto-generated getter or setter
+     */
+	public void setStampSize(int stampSize)
+	{
+		this.stampSize = stampSize;
+	}
+	
+	
     
     
 }

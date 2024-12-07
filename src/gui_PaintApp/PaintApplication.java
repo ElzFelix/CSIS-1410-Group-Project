@@ -22,11 +22,11 @@ public class PaintApplication extends JFrame {
     private ControlPanel controlPanel;
     
     //top panel buttons
-    private JButton btnOpenImage, btnSaveImage, btnUndo, btnRedo;
+    private JButton btnNewImage, btnOpenImage, btnSaveImage, btnUndo, btnRedo;
     
     //for undo/redo
-    private static Stack<ArrayList<DrawingPoint>> undoStack = new Stack<>();
-    private static Stack<ArrayList<DrawingPoint>> redoStack = new Stack<>();
+    private static Stack<ArrayList<Undoable>> undoStack = new Stack<>();
+    private static Stack<ArrayList<Undoable>> redoStack = new Stack<>();
    
 
     /**
@@ -56,9 +56,11 @@ public class PaintApplication extends JFrame {
      * Doc comment written by: Christian Miller 
      */
     public PaintApplication() {
+    	setIconImage(Toolkit.getDefaultToolkit().getImage(PaintApplication.class.getResource("/gui_PaintApp/icon.png")));
+    	setTitle("Paint Application - 1410 Final Project");
     	
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setBounds(100, 100, 1000, 700);
+        setBounds(100, 100, 1280, 720); //made size bigger to accomodate color selector
         getContentPane().setLayout(new BorderLayout());
 
         // Create components
@@ -87,11 +89,13 @@ public class PaintApplication extends JFrame {
 	{
 		JPanel topPanel = new JPanel();
         
+		btnNewImage = new JButton("New Image");
         btnOpenImage = new JButton("Open Image");
         btnSaveImage = new JButton("Save Image");
         btnUndo = new JButton("Undo");
         btnRedo = new JButton("Redo");
 
+        topPanel.add(btnNewImage);
         topPanel.add(btnOpenImage);
         topPanel.add(btnSaveImage);
         topPanel.add(btnUndo);
@@ -100,6 +104,7 @@ public class PaintApplication extends JFrame {
         getContentPane().add(topPanel, BorderLayout.NORTH);
         
         // Add listeners
+        btnNewImage.addActionListener(e -> canvasPanel.clearCanvas());
         btnOpenImage.addActionListener(e -> ImageHandler.openImage(canvasPanel));
         btnSaveImage.addActionListener(e -> ImageHandler.saveImage(canvasPanel));
         btnUndo.addActionListener(e -> undo());
@@ -120,7 +125,7 @@ public class PaintApplication extends JFrame {
      * 
      * made static by Christian Miller, in order to move a lot of functionality to CanvasPanel
      */
-	public static void saveStateForUndo(ArrayList<DrawingPoint> points) {
+	public static void saveStateForUndo(ArrayList<Undoable> points) {
     	
 		if (undoStack.isEmpty() || !undoStack.peek().equals(points)) {
 	        undoStack.push(new ArrayList<>(points));
